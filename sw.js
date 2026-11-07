@@ -1,7 +1,8 @@
-const CACHE = 'card-talk-v3';
+const CACHE = 'card-talk-v4';
 const ASSETS = [
   './',
   './index.html',
+  './compose.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
