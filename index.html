@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="圖卡說話" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#4FC3F7" />
+<meta name="description" content="給口語表達較困難孩子使用的中文圖卡溝通 App（離線可用）" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<title>圖卡說話 · Card Talk</title>
+<style>
+:root {
+  --bg1: #e3f2fd; --bg2: #fce4ec;
+  --panel: #ffffff; --text: #1a237e; --muted: #607d8b;
+  --accent: #29b6f6; --ok: #66bb6a; --warn: #ffa726; --danger: #ef5350;
+  --card-size: 124px; --radius: 20px;
+  --shadow: 0 6px 18px rgba(33, 80, 120, 0.14);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --cat-color: #29b6f6;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin:0; padding:0; height:100%;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  background: linear-gradient(165deg, var(--bg1), var(--bg2));
+  color: var(--text); overscroll-behavior: none;
+}
+body { display:flex; flex-direction:column; min-height:100dvh; }
+button { font-family: inherit; cursor:pointer; border:none; }
+img { display:block; max-width:100%; }
+
+#strip-wrap {
+  position:sticky; top:0; z-index:50;
+  background: rgba(255,255,255,.94); backdrop-filter: blur(10px);
+  border-bottom: 3px solid color-mix(in srgb, var(--cat-color) 55%, white);
+  padding: 10px 12px 8px; box-shadow: var(--shadow);
+}
+#strip {
+  display:flex; gap:8px; overflow-x:auto; min-height:84px; padding:6px 2px;
+  align-items:stretch; -webkit-overflow-scrolling:touch;
+}
+#strip:empty::before {
+  content:"點下方圖卡組成句子…"; color:var(--muted); font-size:15px;
+  align-self:center; padding-left:8px;
+}
+.strip-card {
+  flex:0 0 auto; width:70px; background:#fff; border-radius:14px;
+  border:2.5px solid color-mix(in srgb, var(--cat-color) 70%, #90caf9);
+  overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.strip-card img { width:100%; height:48px; object-fit:cover; background:#eceff1; }
+.strip-card span { font-size:12px; text-align:center; padding:3px 2px 5px; line-height:1.2; font-weight:800; }
+#strip-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+#strip-actions button {
+  flex:1; min-width:88px; padding:11px 8px; border-radius:16px;
+  font-size:15px; font-weight:800; color:#fff; box-shadow:0 3px 10px rgba(0,0,0,.12);
+}
+.btn-play{background:var(--ok)} .btn-undo{background:var(--warn)} .btn-clear{background:var(--danger)}
+.btn-settings{background:#7e57c2; flex:0 0 auto!important; min-width:48px!important}
+
+#cats {
+  display:flex; gap:8px; overflow-x:auto; padding:10px 12px 6px;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+#cats::-webkit-scrollbar{display:none}
+.cat-btn {
+  flex:0 0 auto; padding:10px 15px; border-radius:999px;
+  background:#fff; color:var(--text); font-weight:800; font-size:14px;
+  border:2.5px solid #bbdefb; box-shadow:0 2px 8px rgba(0,0,0,.06);
+  transition: transform .08s ease, background .15s, color .15s;
+}
+.cat-btn.active {
+  background: var(--cat-color); color:#fff; border-color: transparent;
+  transform: scale(1.04);
+}
+
+#main { flex:1; overflow-y:auto; padding:6px 12px 110px; }
+#grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-size), 1fr));
+  gap:14px;
+}
+.card {
+  background: var(--panel); border-radius: var(--radius);
+  border: 3px solid color-mix(in srgb, var(--cat-color) 35%, #e3f2fd);
+  box-shadow: var(--shadow);
+  overflow:hidden; display:flex; flex-direction:column;
+  transition: transform .09s ease, box-shadow .09s;
+  user-select:none; position:relative; padding:0;
+  text-align:center; color:inherit;
+}
+.card:active { transform: scale(.93); }
+.card.speaking {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 4px rgba(102,187,106,.35), var(--shadow);
+}
+.card .photo {
+  width:100%; aspect-ratio:1; overflow:hidden; background:#eceff1;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+}
+.card .photo img {
+  width:100%; height:100%; object-fit:cover;
+}
+.card .label {
+  padding:10px 6px 12px; font-weight:900;
+  font-size: clamp(14px, 3.6vw, 18px); line-height:1.25;
+  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--cat-color) 10%, #fff));
+}
+.card.custom-badge::after {
+  content:"自訂"; position:absolute; top:8px; right:8px;
+  background:#ab47bc; color:#fff; font-size:10px; font-weight:800;
+  padding:3px 7px; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,.15);
+}
+
+#toolbar {
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  display:flex; gap:8px; padding:10px 12px calc(10px + var(--safe-bottom));
+  background:rgba(255,255,255,.96); border-top:2px solid #ce93d8; backdrop-filter:blur(8px);
+}
+#toolbar button {
+  flex:1; padding:14px 8px; border-radius:16px; font-size:15px; font-weight:900; color:#fff;
+  box-shadow:0 3px 10px rgba(0,0,0,.12);
+}
+.btn-custom{background:#ab47bc} .btn-manage{background:#5c6bc0} .btn-export{background:#00897b}
+
+.modal-backdrop {
+  position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100;
+  display:none; align-items:flex-end; justify-content:center; padding:12px;
+}
+.modal-backdrop.show{display:flex}
+.modal {
+  background:#fff; width:min(520px,100%); max-height:90dvh; overflow-y:auto;
+  border-radius:24px 24px 18px 18px; padding:18px 16px 20px;
+  box-shadow:0 -10px 36px rgba(0,0,0,.22);
+}
+.modal h2{margin:0 0 12px; font-size:20px}
+.modal label{display:block; font-weight:800; margin:10px 0 4px; font-size:14px}
+.modal input[type=text], .modal input[type=range], .modal select, .modal textarea {
+  width:100%; font-size:16px; padding:10px 12px; border-radius:12px;
+  border:2px solid #bbdefb; font-family:inherit;
+}
+.modal .row{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap}
+.modal .row button{flex:1; padding:12px; border-radius:14px; font-weight:900; color:#fff; font-size:15px}
+.preview-box{
+  margin-top:8px; width:140px; height:140px; border-radius:18px; overflow:hidden;
+  border:2px dashed #90caf9; background:#f5f5f5; display:flex; align-items:center; justify-content:center;
+}
+.preview-box img{width:100%; height:100%; object-fit:cover}
+.hint{color:var(--muted); font-size:13px; margin:6px 0; line-height:1.4}
+.manage-item{
+  display:flex; gap:10px; align-items:center; padding:8px; border-radius:14px;
+  border:1px solid #e0e0e0; margin-bottom:8px;
+}
+.manage-item img{width:56px; height:56px; object-fit:cover; border-radius:12px}
+.manage-item .meta{flex:1; font-weight:800}
+.manage-item button{padding:8px 10px; border-radius:10px; color:#fff; font-weight:800}
+.rec-dot{display:inline-block; width:10px; height:10px; border-radius:50%; background:#ef5350; margin-right:6px; animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.3}}
+.toast{
+  position:fixed; left:50%; bottom:96px; transform:translateX(-50%);
+  background:rgba(26,35,126,.92); color:#fff; padding:10px 16px; border-radius:12px;
+  font-weight:800; z-index:200; display:none; max-width:90%; text-align:center;
+}
+</style>
+</head>
+<body>
+<div id="strip-wrap">
+  <div id="strip" aria-label="句子列"></div>
+  <div id="strip-actions">
+    <button type="button" class="btn-play" id="btnPlayAll">▶ 播放整句</button>
+    <button type="button" class="btn-undo" id="btnUndo">刪除最後一張</button>
+    <button type="button" class="btn-clear" id="btnClear">清除</button>
+    <button type="button" class="btn-settings" id="btnSettings" title="設定">⚙</button>
+  </div>
+</div>
+<div id="cats" role="tablist" aria-label="分類"></div>
+<main id="main"><div id="grid" role="list"></div></main>
+<div id="toolbar">
+  <button type="button" class="btn-custom" id="btnAdd">＋ 自訂圖卡</button>
+  <button type="button" class="btn-manage" id="btnManage">管理自訂</button>
+  <button type="button" class="btn-export" id="btnIO">匯出／匯入</button>
+</div>
+
+<div class="modal-backdrop" id="modalSettings">
+  <div class="modal">
+    <h2>設定</h2>
+    <label>圖卡大小</label>
+    <input type="range" id="sizeRange" min="90" max="180" step="4" />
+    <label>說話速度（慢 ← → 快）</label>
+    <input type="range" id="rateRange" min="0.6" max="1.3" step="0.05" />
+    <p class="hint" id="voiceInfo">語音：偵測中…</p>
+    <p class="hint">無廣告、可離線。iPhone／iPad 請安裝繁體中文系統語音（設定 → 輔助使用 → 朗讀內容 → 聲音）。</p>
+    <div class="row"><button type="button" style="background:#78909c" id="closeSettings">關閉</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalCustom">
+  <div class="modal">
+    <h2 id="customTitle">新增自訂圖卡</h2>
+    <label>文字（會顯示並朗讀）</label>
+    <input type="text" id="customLabel" maxlength="20" placeholder="例如：想看卡通" />
+    <label>照片（相機或相簿）</label>
+    <input type="file" id="customPhoto" accept="image/*" capture="environment" />
+    <div class="preview-box" id="photoPreview"><span style="color:#90a4ae;font-size:13px">預覽</span></div>
+    <label>錄音（選填；沒有就用語音朗讀）</label>
+    <div class="row" style="margin-top:6px">
+      <button type="button" style="background:#ef5350" id="btnRec">● 開始錄音</button>
+      <button type="button" style="background:#42a5f5" id="btnPlayRec" disabled>試聽</button>
+      <button type="button" style="background:#78909c" id="btnClearRec">清除錄音</button>
+    </div>
+    <p class="hint" id="recStatus">尚未錄音</p>
+    <div class="row">
+      <button type="button" style="background:#66bb6a" id="btnSaveCustom">儲存</button>
+      <button type="button" style="background:#78909c" id="btnCancelCustom">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalManage">
+  <div class="modal">
+    <h2>管理自訂圖卡</h2>
+    <div id="manageList"></div>
+    <p class="hint" id="manageEmpty">目前沒有自訂圖卡。</p>
+    <div class="row"><button type="button" style="background:#78909c" id="closeManage">關閉</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalIO">
+  <div class="modal">
+    <h2>匯出／匯入自訂圖卡</h2>
+    <p class="hint">可把自訂圖卡（含照片與錄音）存成 JSON，方便在家裡與學校之間分享。</p>
+    <div class="row"><button type="button" style="background:#00897b" id="btnDoExport">匯出 JSON</button></div>
+    <label>匯入 JSON 檔</label>
+    <input type="file" id="importFile" accept="application/json,.json" />
+    <div class="row"><button type="button" style="background:#78909c" id="closeIO">關閉</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BUILTIN = {
+  "categories": [
+    "需求",
+    "心情",
+    "回應",
+    "食物",
+    "水果",
+    "蔬菜",
+    "點心",
+    "飲料",
+    "動物",
+    "交通工具",
+    "衣服",
+    "玩具",
+    "日用品",
+    "家具",
+    "學校用品",
+    "電器",
+    "地點",
+    "活動",
+    "人物",
+    "身體",
+    "顏色／形狀",
+    "天氣"
+  ],
+  "cards": [
+    {
+      "id": "toilet",
+      "label": "上廁所",
+      "category": "需求",
+      "img": "images/toilet.jpg"
+    },
+    {
+      "id": "rest",
+      "label": "休息",
+      "category": "需求",
+      "img": "images/rest.jpg"
+    },
+    {
+      "id": "medicine",
+      "label": "吃藥",
+      "category": "需求",
+      "img": "images/medicine.jpg"
+    },
+    {
+      "id": "help",
+      "label": "幫忙",
+      "category": "需求",
+      "img": "images/help.jpg"
+    },
+    {
+      "id": "want_water",
+      "label": "想喝水",
+      "category": "需求",
+      "img": "images/want_water.jpg"
+    },
+    {
+      "id": "sleep",
+      "label": "想睡覺",
+      "category": "需求",
+      "img": "images/sleep.jpg"
+    },
+    {
+      "id": "tired",
+      "label": "我累了",
+      "category": "需求",
+      "img": "images/tired.jpg"
+    },
+    {
+      "id": "hungry",
+      "label": "我餓了",
+      "category": "需求",
+      "img": "images/hungry.jpg"
+    },
+    {
+      "id": "hug",
+      "label": "抱抱",
+      "category": "需求",
+      "img": "images/hug.jpg"
+    },
+    {
+      "id": "change_clothes",
+      "label": "換衣服",
+      "category": "需求",
+      "img": "images/change_clothes.jpg"
+    },
+    {
+      "id": "like",
+      "label": "喜歡",
+      "category": "心情",
+      "img": "images/like.jpg"
+    },
+    {
+      "id": "scared",
+      "label": "害怕",
+      "category": "心情",
+      "img": "images/scared.jpg"
+    },
+    {
+      "id": "bored",
+      "label": "無聊",
+      "category": "心情",
+      "img": "images/bored.jpg"
+    },
+    {
+      "id": "angry",
+      "label": "生氣",
+      "category": "心情",
+      "img": "images/angry.jpg"
+    },
+    {
+      "id": "excited",
+      "label": "興奮",
+      "category": "心情",
+      "img": "images/excited.jpg"
+    },
+    {
+      "id": "dislike",
+      "label": "討厭",
+      "category": "心情",
+      "img": "images/dislike.jpg"
+    },
+    {
+      "id": "happy",
+      "label": "開心",
+      "category": "心情",
+      "img": "images/happy.jpg"
+    },
+    {
+      "id": "sad",
+      "label": "難過",
+      "category": "心情",
+      "img": "images/sad.jpg"
+    },
+    {
+      "id": "no",
+      "label": "不是",
+      "category": "回應",
+      "img": "images/no.jpg"
+    },
+    {
+      "id": "dont_want",
+      "label": "不要",
+      "category": "回應",
+      "img": "images/dont_want.jpg"
+    },
+    {
+      "id": "bye",
+      "label": "再見",
+      "category": "回應",
+      "img": "images/bye.jpg"
+    },
+    {
+      "id": "ok",
+      "label": "好的",
+      "category": "回應",
+      "img": "images/ok.jpg"
+    },
+    {
+      "id": "sorry",
+      "label": "對不起",
+      "category": "回應",
+      "img": "images/sorry.jpg"
+    },
+    {
+      "id": "yes",
+      "label": "是",
+      "category": "回應",
+      "img": "images/yes.jpg"
+    },
+    {
+      "id": "wait",
+      "label": "等等",
+      "category": "回應",
+      "img": "images/wait.jpg"
+    },
+    {
+      "id": "please",
+      "label": "請",
+      "category": "回應",
+      "img": "images/please.jpg"
+    },
+    {
+      "id": "thanks",
+      "label": "謝謝",
+      "category": "回應",
+      "img": "images/thanks.jpg"
+    },
+    {
+      "id": "more",
+      "label": "還要",
+      "category": "回應",
+      "img": "images/more.jpg"
+    },
+    {
+      "id": "rice",
+      "label": "白飯",
+      "category": "食物",
+      "img": "images/rice.jpg"
+    },
+    {
+      "id": "vegetables",
+      "label": "蔬菜",
+      "category": "食物",
+      "img": "images/vegetables.jpg"
+    },
+    {
+      "id": "chicken",
+      "label": "雞肉",
+      "category": "食物",
+      "img": "images/chicken.jpg"
+    },
+    {
+      "id": "egg",
+      "label": "雞蛋",
+      "category": "食物",
+      "img": "images/egg.jpg"
+    },
+    {
+      "id": "fish",
+      "label": "魚",
+      "category": "食物",
+      "img": "images/fish.jpg"
+    },
+    {
+      "id": "noodles",
+      "label": "麵",
+      "category": "食物",
+      "img": "images/noodles.jpg"
+    },
+    {
+      "id": "bread",
+      "label": "麵包",
+      "category": "食物",
+      "img": "images/bread.jpg"
+    },
+    {
+      "id": "fruit_kiwi",
+      "label": "奇異果",
+      "category": "水果",
+      "img": "images/fruit_kiwi.jpg"
+    },
+    {
+      "id": "fruit_peach",
+      "label": "桃子",
+      "category": "水果",
+      "img": "images/fruit_peach.jpg"
+    },
+    {
+      "id": "fruit_pear",
+      "label": "梨子",
+      "category": "水果",
+      "img": "images/fruit_pear.jpg"
+    },
+    {
+      "id": "fruit_orange",
+      "label": "橘子",
+      "category": "水果",
+      "img": "images/fruit_orange.jpg"
+    },
+    {
+      "id": "fruit_lemon",
+      "label": "檸檬",
+      "category": "水果",
+      "img": "images/fruit_lemon.jpg"
+    },
+    {
+      "id": "fruit_cherry",
+      "label": "櫻桃",
+      "category": "水果",
+      "img": "images/fruit_cherry.jpg"
+    },
+    {
+      "id": "fruit_mango",
+      "label": "芒果",
+      "category": "水果",
+      "img": "images/fruit_mango.jpg"
+    },
+    {
+      "id": "fruit_strawberry",
+      "label": "草莓",
+      "category": "水果",
+      "img": "images/fruit_strawberry.jpg"
+    },
+    {
+      "id": "fruit_grape",
+      "label": "葡萄",
+      "category": "水果",
+      "img": "images/fruit_grape.jpg"
+    },
+    {
+      "id": "fruit_blueberry",
+      "label": "藍莓",
+      "category": "水果",
+      "img": "images/fruit_blueberry.jpg"
+    },
+    {
+      "id": "fruit_apple",
+      "label": "蘋果",
+      "category": "水果",
+      "img": "images/fruit_apple.jpg"
+    },
+    {
+      "id": "fruit_watermelon",
+      "label": "西瓜",
+      "category": "水果",
+      "img": "images/fruit_watermelon.jpg"
+    },
+    {
+      "id": "fruit_banana",
+      "label": "香蕉",
+      "category": "水果",
+      "img": "images/fruit_banana.jpg"
+    },
+    {
+      "id": "fruit_pineapple",
+      "label": "鳳梨",
+      "category": "水果",
+      "img": "images/fruit_pineapple.jpg"
+    },
+    {
+      "id": "veg_pumpkin",
+      "label": "南瓜",
+      "category": "蔬菜",
+      "img": "images/veg_pumpkin.jpg"
+    },
+    {
+      "id": "veg_onion",
+      "label": "洋蔥",
+      "category": "蔬菜",
+      "img": "images/veg_onion.jpg"
+    },
+    {
+      "id": "veg_corn",
+      "label": "玉米",
+      "category": "蔬菜",
+      "img": "images/veg_corn.jpg"
+    },
+    {
+      "id": "veg_lettuce",
+      "label": "生菜",
+      "category": "蔬菜",
+      "img": "images/veg_lettuce.jpg"
+    },
+    {
+      "id": "veg_tomato",
+      "label": "番茄",
+      "category": "蔬菜",
+      "img": "images/veg_tomato.jpg"
+    },
+    {
+      "id": "veg_carrot",
+      "label": "胡蘿蔔",
+      "category": "蔬菜",
+      "img": "images/veg_carrot.jpg"
+    },
+    {
+      "id": "veg_broccoli",
+      "label": "花椰菜",
+      "category": "蔬菜",
+      "img": "images/veg_broccoli.jpg"
+    },
+    {
+      "id": "veg_eggplant",
+      "label": "茄子",
+      "category": "蔬菜",
+      "img": "images/veg_eggplant.jpg"
+    },
+    {
+      "id": "veg_spinach",
+      "label": "菠菜",
+      "category": "蔬菜",
+      "img": "images/veg_spinach.jpg"
+    },
+    {
+      "id": "veg_radish",
+      "label": "蘿蔔",
+      "category": "蔬菜",
+      "img": "images/veg_radish.jpg"
+    },
+    {
+      "id": "veg_pepper",
+      "label": "青椒",
+      "category": "蔬菜",
+      "img": "images/veg_pepper.jpg"
+    },
+    {
+      "id": "veg_potato",
+      "label": "馬鈴薯",
+      "category": "蔬菜",
+      "img": "images/veg_potato.jpg"
+    },
+    {
+      "id": "veg_cabbage",
+      "label": "高麗菜",
+      "category": "蔬菜",
+      "img": "images/veg_cabbage.jpg"
+    },
+    {
+      "id": "veg_cucumber",
+      "label": "黃瓜",
+      "category": "蔬菜",
+      "img": "images/veg_cucumber.jpg"
+    },
+    {
+      "id": "snack_icecream",
+      "label": "冰淇淋",
+      "category": "點心",
+      "img": "images/snack_icecream.jpg"
+    },
+    {
+      "id": "snack_chocolate",
+      "label": "巧克力",
+      "category": "點心",
+      "img": "images/snack_chocolate.jpg"
+    },
+    {
+      "id": "snack_pudding",
+      "label": "布丁",
+      "category": "點心",
+      "img": "images/snack_pudding.jpg"
+    },
+    {
+      "id": "snack_jelly",
+      "label": "果凍",
+      "category": "點心",
+      "img": "images/snack_jelly.jpg"
+    },
+    {
+      "id": "snack_popcorn",
+      "label": "爆米花",
+      "category": "點心",
+      "img": "images/snack_popcorn.jpg"
+    },
+    {
+      "id": "snack_donut",
+      "label": "甜甜圈",
+      "category": "點心",
+      "img": "images/snack_donut.jpg"
+    },
+    {
+      "id": "snack_candy",
+      "label": "糖果",
+      "category": "點心",
+      "img": "images/snack_candy.jpg"
+    },
+    {
+      "id": "snack_chips",
+      "label": "薯片",
+      "category": "點心",
+      "img": "images/snack_chips.jpg"
+    },
+    {
+      "id": "snack_cracker",
+      "label": "蘇打餅",
+      "category": "點心",
+      "img": "images/snack_cracker.jpg"
+    },
+    {
+      "id": "snack_cake",
+      "label": "蛋糕",
+      "category": "點心",
+      "img": "images/snack_cake.jpg"
+    },
+    {
+      "id": "snack_cookie",
+      "label": "餅乾",
+      "category": "點心",
+      "img": "images/snack_cookie.jpg"
+    },
+    {
+      "id": "snack_mochi",
+      "label": "麻糬",
+      "category": "點心",
+      "img": "images/snack_mochi.jpg"
+    },
+    {
+      "id": "juice",
+      "label": "果汁",
+      "category": "飲料",
+      "img": "images/juice.jpg"
+    },
+    {
+      "id": "water",
+      "label": "水",
+      "category": "飲料",
+      "img": "images/water.jpg"
+    },
+    {
+      "id": "soda",
+      "label": "汽水",
+      "category": "飲料",
+      "img": "images/soda.jpg"
+    },
+    {
+      "id": "milk",
+      "label": "牛奶",
+      "category": "飲料",
+      "img": "images/milk.jpg"
+    },
+    {
+      "id": "tea",
+      "label": "茶",
+      "category": "飲料",
+      "img": "images/tea.jpg"
+    },
+    {
+      "id": "animal_rabbit",
+      "label": "兔子",
+      "category": "動物",
+      "img": "images/animal_rabbit.jpg"
+    },
+    {
+      "id": "animal_elephant",
+      "label": "大象",
+      "category": "動物",
+      "img": "images/animal_elephant.jpg"
+    },
+    {
+      "id": "animal_bear",
+      "label": "熊",
+      "category": "動物",
+      "img": "images/animal_bear.jpg"
+    },
+    {
+      "id": "animal_cow",
+      "label": "牛",
+      "category": "動物",
+      "img": "images/animal_cow.jpg"
+    },
+    {
+      "id": "animal_dog",
+      "label": "狗",
+      "category": "動物",
+      "img": "images/animal_dog.jpg"
+    },
+    {
+      "id": "animal_monkey",
+      "label": "猴子",
+      "category": "動物",
+      "img": "images/animal_monkey.jpg"
+    },
+    {
+      "id": "animal_lion",
+      "label": "獅子",
+      "category": "動物",
+      "img": "images/animal_lion.jpg"
+    },
+    {
+      "id": "animal_butterfly",
+      "label": "蝴蝶",
+      "category": "動物",
+      "img": "images/animal_butterfly.jpg"
+    },
+    {
+      "id": "animal_pig",
+      "label": "豬",
+      "category": "動物",
+      "img": "images/animal_pig.jpg"
+    },
+    {
+      "id": "animal_cat",
+      "label": "貓",
+      "category": "動物",
+      "img": "images/animal_cat.jpg"
+    },
+    {
+      "id": "animal_chicken",
+      "label": "雞",
+      "category": "動物",
+      "img": "images/animal_chicken.jpg"
+    },
+    {
+      "id": "animal_horse",
+      "label": "馬",
+      "category": "動物",
+      "img": "images/animal_horse.jpg"
+    },
+    {
+      "id": "animal_fish",
+      "label": "魚",
+      "category": "動物",
+      "img": "images/animal_fish.jpg"
+    },
+    {
+      "id": "animal_bird",
+      "label": "鳥",
+      "category": "動物",
+      "img": "images/animal_bird.jpg"
+    },
+    {
+      "id": "animal_duck",
+      "label": "鴨",
+      "category": "動物",
+      "img": "images/animal_duck.jpg"
+    },
+    {
+      "id": "trans_bus",
+      "label": "公車",
+      "category": "交通工具",
+      "img": "images/trans_bus.jpg"
+    },
+    {
+      "id": "trans_truck",
+      "label": "卡車",
+      "category": "交通工具",
+      "img": "images/trans_truck.jpg"
+    },
+    {
+      "id": "trans_subway",
+      "label": "捷運",
+      "category": "交通工具",
+      "img": "images/trans_subway.jpg"
+    },
+    {
+      "id": "trans_motorcycle",
+      "label": "機車",
+      "category": "交通工具",
+      "img": "images/trans_motorcycle.jpg"
+    },
+    {
+      "id": "trans_car",
+      "label": "汽車",
+      "category": "交通工具",
+      "img": "images/trans_car.jpg"
+    },
+    {
+      "id": "trans_scooter",
+      "label": "滑板車",
+      "category": "交通工具",
+      "img": "images/trans_scooter.jpg"
+    },
+    {
+      "id": "trans_train",
+      "label": "火車",
+      "category": "交通工具",
+      "img": "images/trans_train.jpg"
+    },
+    {
+      "id": "trans_helicopter",
+      "label": "直升機",
+      "category": "交通工具",
+      "img": "images/trans_helicopter.jpg"
+    },
+    {
+      "id": "trans_bike",
+      "label": "腳踏車",
+      "category": "交通工具",
+      "img": "images/trans_bike.jpg"
+    },
+    {
+      "id": "trans_boat",
+      "label": "船",
+      "category": "交通工具",
+      "img": "images/trans_boat.jpg"
+    },
+    {
+      "id": "trans_taxi",
+      "label": "計程車",
+      "category": "交通工具",
+      "img": "images/trans_taxi.jpg"
+    },
+    {
+      "id": "trans_airplane",
+      "label": "飛機",
+      "category": "交通工具",
+      "img": "images/trans_airplane.jpg"
+    },
+    {
+      "id": "cloth_underwear",
+      "label": "內褲",
+      "category": "衣服",
+      "img": "images/cloth_underwear.jpg"
+    },
+    {
+      "id": "cloth_scarf",
+      "label": "圍巾",
+      "category": "衣服",
+      "img": "images/cloth_scarf.jpg"
+    },
+    {
+      "id": "cloth_jacket",
+      "label": "外套",
+      "category": "衣服",
+      "img": "images/cloth_jacket.jpg"
+    },
+    {
+      "id": "cloth_hat",
+      "label": "帽子",
+      "category": "衣服",
+      "img": "images/cloth_hat.jpg"
+    },
+    {
+      "id": "cloth_gloves",
+      "label": "手套",
+      "category": "衣服",
+      "img": "images/cloth_gloves.jpg"
+    },
+    {
+      "id": "cloth_pajamas",
+      "label": "睡衣",
+      "category": "衣服",
+      "img": "images/cloth_pajamas.jpg"
+    },
+    {
+      "id": "cloth_shirt",
+      "label": "衣服",
+      "category": "衣服",
+      "img": "images/cloth_shirt.jpg"
+    },
+    {
+      "id": "cloth_dress",
+      "label": "裙子",
+      "category": "衣服",
+      "img": "images/cloth_dress.jpg"
+    },
+    {
+      "id": "cloth_pants",
+      "label": "褲子",
+      "category": "衣服",
+      "img": "images/cloth_pants.jpg"
+    },
+    {
+      "id": "cloth_socks",
+      "label": "襪子",
+      "category": "衣服",
+      "img": "images/cloth_socks.jpg"
+    },
+    {
+      "id": "cloth_raincoat",
+      "label": "雨衣",
+      "category": "衣服",
+      "img": "images/cloth_raincoat.jpg"
+    },
+    {
+      "id": "cloth_shoes",
+      "label": "鞋子",
+      "category": "衣服",
+      "img": "images/cloth_shoes.jpg"
+    },
+    {
+      "id": "toy_doll",
+      "label": "娃娃",
+      "category": "玩具",
+      "img": "images/toy_doll.jpg"
+    },
+    {
+      "id": "toy_puzzle",
+      "label": "拼圖",
+      "category": "玩具",
+      "img": "images/toy_puzzle.jpg"
+    },
+    {
+      "id": "toy_lego",
+      "label": "樂高",
+      "category": "玩具",
+      "img": "images/toy_lego.jpg"
+    },
+    {
+      "id": "toy_robot",
+      "label": "機器人玩具",
+      "category": "玩具",
+      "img": "images/toy_robot.jpg"
+    },
+    {
+      "id": "toy_bubbles",
+      "label": "泡泡",
+      "category": "玩具",
+      "img": "images/toy_bubbles.jpg"
+    },
+    {
+      "id": "toy_teddy",
+      "label": "泰迪熊",
+      "category": "玩具",
+      "img": "images/toy_teddy.jpg"
+    },
+    {
+      "id": "toy_yoyo",
+      "label": "溜溜球",
+      "category": "玩具",
+      "img": "images/toy_yoyo.jpg"
+    },
+    {
+      "id": "toy_car",
+      "label": "玩具車",
+      "category": "玩具",
+      "img": "images/toy_car.jpg"
+    },
+    {
+      "id": "toy_drum",
+      "label": "玩具鼓",
+      "category": "玩具",
+      "img": "images/toy_drum.jpg"
+    },
+    {
+      "id": "toy_ball",
+      "label": "球",
+      "category": "玩具",
+      "img": "images/toy_ball.jpg"
+    },
+    {
+      "id": "toy_blocks",
+      "label": "積木",
+      "category": "玩具",
+      "img": "images/toy_blocks.jpg"
+    },
+    {
+      "id": "toy_kite",
+      "label": "風箏",
+      "category": "玩具",
+      "img": "images/toy_kite.jpg"
+    },
+    {
+      "id": "daily_trash",
+      "label": "垃圾桶",
+      "category": "日用品",
+      "img": "images/daily_trash.jpg"
+    },
+    {
+      "id": "daily_cup",
+      "label": "杯子",
+      "category": "日用品",
+      "img": "images/daily_cup.jpg"
+    },
+    {
+      "id": "daily_comb",
+      "label": "梳子",
+      "category": "日用品",
+      "img": "images/daily_comb.jpg"
+    },
+    {
+      "id": "daily_towel",
+      "label": "毛巾",
+      "category": "日用品",
+      "img": "images/daily_towel.jpg"
+    },
+    {
+      "id": "daily_shampoo",
+      "label": "洗髮精",
+      "category": "日用品",
+      "img": "images/daily_shampoo.jpg"
+    },
+    {
+      "id": "daily_spoon",
+      "label": "湯匙",
+      "category": "日用品",
+      "img": "images/daily_spoon.jpg"
+    },
+    {
+      "id": "daily_toothbrush",
+      "label": "牙刷",
+      "category": "日用品",
+      "img": "images/daily_toothbrush.jpg"
+    },
+    {
+      "id": "daily_toothpaste",
+      "label": "牙膏",
+      "category": "日用品",
+      "img": "images/daily_toothpaste.jpg"
+    },
+    {
+      "id": "daily_plate",
+      "label": "盤子",
+      "category": "日用品",
+      "img": "images/daily_plate.jpg"
+    },
+    {
+      "id": "daily_bowl",
+      "label": "碗",
+      "category": "日用品",
+      "img": "images/daily_bowl.jpg"
+    },
+    {
+      "id": "daily_chopsticks",
+      "label": "筷子",
+      "category": "日用品",
+      "img": "images/daily_chopsticks.jpg"
+    },
+    {
+      "id": "daily_soap",
+      "label": "肥皂",
+      "category": "日用品",
+      "img": "images/daily_soap.jpg"
+    },
+    {
+      "id": "daily_mirror",
+      "label": "鏡子",
+      "category": "日用品",
+      "img": "images/daily_mirror.jpg"
+    },
+    {
+      "id": "daily_tissue",
+      "label": "面紙",
+      "category": "日用品",
+      "img": "images/daily_tissue.jpg"
+    },
+    {
+      "id": "furn_carpet",
+      "label": "地毯",
+      "category": "家具",
+      "img": "images/furn_carpet.jpg"
+    },
+    {
+      "id": "furn_bed",
+      "label": "床",
+      "category": "家具",
+      "img": "images/furn_bed.jpg"
+    },
+    {
+      "id": "furn_shelf",
+      "label": "書架",
+      "category": "家具",
+      "img": "images/furn_shelf.jpg"
+    },
+    {
+      "id": "furn_desk",
+      "label": "書桌",
+      "category": "家具",
+      "img": "images/furn_desk.jpg"
+    },
+    {
+      "id": "furn_pillow",
+      "label": "枕頭",
+      "category": "家具",
+      "img": "images/furn_pillow.jpg"
+    },
+    {
+      "id": "furn_table",
+      "label": "桌子",
+      "category": "家具",
+      "img": "images/furn_table.jpg"
+    },
+    {
+      "id": "furn_chair",
+      "label": "椅子",
+      "category": "家具",
+      "img": "images/furn_chair.jpg"
+    },
+    {
+      "id": "furn_lamp",
+      "label": "檯燈",
+      "category": "家具",
+      "img": "images/furn_lamp.jpg"
+    },
+    {
+      "id": "furn_sofa",
+      "label": "沙發",
+      "category": "家具",
+      "img": "images/furn_sofa.jpg"
+    },
+    {
+      "id": "furn_curtain",
+      "label": "窗簾",
+      "category": "家具",
+      "img": "images/furn_curtain.jpg"
+    },
+    {
+      "id": "furn_wardrobe",
+      "label": "衣櫃",
+      "category": "家具",
+      "img": "images/furn_wardrobe.jpg"
+    },
+    {
+      "id": "furn_blanket",
+      "label": "被子",
+      "category": "家具",
+      "img": "images/furn_blanket.jpg"
+    },
+    {
+      "id": "school_sharpener",
+      "label": "削鉛筆機",
+      "category": "學校用品",
+      "img": "images/school_sharpener.jpg"
+    },
+    {
+      "id": "school_scissors",
+      "label": "剪刀",
+      "category": "學校用品",
+      "img": "images/school_scissors.jpg"
+    },
+    {
+      "id": "school_pen",
+      "label": "原子筆",
+      "category": "學校用品",
+      "img": "images/school_pen.jpg"
+    },
+    {
+      "id": "school_ruler",
+      "label": "尺",
+      "category": "學校用品",
+      "img": "images/school_ruler.jpg"
+    },
+    {
+      "id": "school_marker",
+      "label": "彩色筆",
+      "category": "學校用品",
+      "img": "images/school_marker.jpg"
+    },
+    {
+      "id": "school_book",
+      "label": "書",
+      "category": "學校用品",
+      "img": "images/school_book.jpg"
+    },
+    {
+      "id": "school_backpack",
+      "label": "書包",
+      "category": "學校用品",
+      "img": "images/school_backpack.jpg"
+    },
+    {
+      "id": "school_eraser",
+      "label": "橡皮擦",
+      "category": "學校用品",
+      "img": "images/school_eraser.jpg"
+    },
+    {
+      "id": "school_notebook",
+      "label": "筆記本",
+      "category": "學校用品",
+      "img": "images/school_notebook.jpg"
+    },
+    {
+      "id": "school_glue",
+      "label": "膠水",
+      "category": "學校用品",
+      "img": "images/school_glue.jpg"
+    },
+    {
+      "id": "school_crayon",
+      "label": "蠟筆",
+      "category": "學校用品",
+      "img": "images/school_crayon.jpg"
+    },
+    {
+      "id": "school_pencil",
+      "label": "鉛筆",
+      "category": "學校用品",
+      "img": "images/school_pencil.jpg"
+    },
+    {
+      "id": "fridge",
+      "label": "冰箱",
+      "category": "電器",
+      "img": "images/fridge.jpg"
+    },
+    {
+      "id": "ac",
+      "label": "冷氣",
+      "category": "電器",
+      "img": "images/ac.jpg"
+    },
+    {
+      "id": "vacuum",
+      "label": "吸塵器",
+      "category": "電器",
+      "img": "images/vacuum.jpg"
+    },
+    {
+      "id": "hairdryer",
+      "label": "吹風機",
+      "category": "電器",
+      "img": "images/hairdryer.jpg"
+    },
+    {
+      "id": "tablet",
+      "label": "平板",
+      "category": "電器",
+      "img": "images/tablet.jpg"
+    },
+    {
+      "id": "microwave",
+      "label": "微波爐",
+      "category": "電器",
+      "img": "images/microwave.jpg"
+    },
+    {
+      "id": "phone",
+      "label": "手機",
+      "category": "電器",
+      "img": "images/phone.jpg"
+    },
+    {
+      "id": "robot_vac",
+      "label": "掃地機器人",
+      "category": "電器",
+      "img": "images/robot_vac.jpg"
+    },
+    {
+      "id": "washer",
+      "label": "洗衣機",
+      "category": "電器",
+      "img": "images/washer.jpg"
+    },
+    {
+      "id": "toaster",
+      "label": "烤麵包機",
+      "category": "電器",
+      "img": "images/toaster.jpg"
+    },
+    {
+      "id": "lamp",
+      "label": "電燈",
+      "category": "電器",
+      "img": "images/lamp.jpg"
+    },
+    {
+      "id": "computer",
+      "label": "電腦",
+      "category": "電器",
+      "img": "images/computer.jpg"
+    },
+    {
+      "id": "tv_set",
+      "label": "電視",
+      "category": "電器",
+      "img": "images/tv_set.jpg"
+    },
+    {
+      "id": "ricecooker",
+      "label": "電鍋",
+      "category": "電器",
+      "img": "images/ricecooker.jpg"
+    },
+    {
+      "id": "fan",
+      "label": "電風扇",
+      "category": "電器",
+      "img": "images/fan.jpg"
+    },
+    {
+      "id": "park",
+      "label": "公園",
+      "category": "地點",
+      "img": "images/park.jpg"
+    },
+    {
+      "id": "store",
+      "label": "商店",
+      "category": "地點",
+      "img": "images/store.jpg"
+    },
+    {
+      "id": "school",
+      "label": "學校",
+      "category": "地點",
+      "img": "images/school.jpg"
+    },
+    {
+      "id": "home",
+      "label": "家",
+      "category": "地點",
+      "img": "images/home.jpg"
+    },
+    {
+      "id": "kitchen",
+      "label": "廚房",
+      "category": "地點",
+      "img": "images/kitchen.jpg"
+    },
+    {
+      "id": "bedroom",
+      "label": "房間",
+      "category": "地點",
+      "img": "images/bedroom.jpg"
+    },
+    {
+      "id": "bathroom",
+      "label": "洗手間",
+      "category": "地點",
+      "img": "images/bathroom.jpg"
+    },
+    {
+      "id": "hospital",
+      "label": "醫院",
+      "category": "地點",
+      "img": "images/hospital.jpg"
+    },
+    {
+      "id": "outdoors",
+      "label": "出去玩",
+      "category": "活動",
+      "img": "images/outdoors.jpg"
+    },
+    {
+      "id": "sing",
+      "label": "唱歌",
+      "category": "活動",
+      "img": "images/sing.jpg"
+    },
+    {
+      "id": "swim",
+      "label": "游泳",
+      "category": "活動",
+      "img": "images/swim.jpg"
+    },
+    {
+      "id": "play",
+      "label": "玩",
+      "category": "活動",
+      "img": "images/play.jpg"
+    },
+    {
+      "id": "draw",
+      "label": "畫畫",
+      "category": "活動",
+      "img": "images/draw.jpg"
+    },
+    {
+      "id": "read",
+      "label": "看書",
+      "category": "活動",
+      "img": "images/read.jpg"
+    },
+    {
+      "id": "tv",
+      "label": "看電視",
+      "category": "活動",
+      "img": "images/tv.jpg"
+    },
+    {
+      "id": "run",
+      "label": "跑步",
+      "category": "活動",
+      "img": "images/run.jpg"
+    },
+    {
+      "id": "soccer",
+      "label": "踢球",
+      "category": "活動",
+      "img": "images/soccer.jpg"
+    },
+    {
+      "id": "bike",
+      "label": "騎腳踏車",
+      "category": "活動",
+      "img": "images/bike.jpg"
+    },
+    {
+      "id": "mom",
+      "label": "媽媽",
+      "category": "人物",
+      "img": "images/mom.jpg"
+    },
+    {
+      "id": "family",
+      "label": "家人",
+      "category": "人物",
+      "img": "images/family.jpg"
+    },
+    {
+      "id": "friend",
+      "label": "朋友",
+      "category": "人物",
+      "img": "images/friend.jpg"
+    },
+    {
+      "id": "dad",
+      "label": "爸爸",
+      "category": "人物",
+      "img": "images/dad.jpg"
+    },
+    {
+      "id": "teacher",
+      "label": "老師",
+      "category": "人物",
+      "img": "images/teacher.jpg"
+    },
+    {
+      "id": "doctor",
+      "label": "醫生",
+      "category": "人物",
+      "img": "images/doctor.jpg"
+    },
+    {
+      "id": "mouth",
+      "label": "嘴巴",
+      "category": "身體",
+      "img": "images/mouth.jpg"
+    },
+    {
+      "id": "hand",
+      "label": "手",
+      "category": "身體",
+      "img": "images/hand.jpg"
+    },
+    {
+      "id": "eyes",
+      "label": "眼睛",
+      "category": "身體",
+      "img": "images/eyes.jpg"
+    },
+    {
+      "id": "stomachache",
+      "label": "肚子痛",
+      "category": "身體",
+      "img": "images/stomachache.jpg"
+    },
+    {
+      "id": "foot",
+      "label": "腳",
+      "category": "身體",
+      "img": "images/foot.jpg"
+    },
+    {
+      "id": "head",
+      "label": "頭",
+      "category": "身體",
+      "img": "images/head.jpg"
+    },
+    {
+      "id": "headache",
+      "label": "頭痛",
+      "category": "身體",
+      "img": "images/headache.jpg"
+    },
+    {
+      "id": "shape_triangle",
+      "label": "三角形",
+      "category": "顏色／形狀",
+      "img": "images/shape_triangle.jpg"
+    },
+    {
+      "id": "shape_circle",
+      "label": "圓形",
+      "category": "顏色／形狀",
+      "img": "images/shape_circle.jpg"
+    },
+    {
+      "id": "shape_heart",
+      "label": "愛心",
+      "category": "顏色／形狀",
+      "img": "images/shape_heart.jpg"
+    },
+    {
+      "id": "shape_square",
+      "label": "方形",
+      "category": "顏色／形狀",
+      "img": "images/shape_square.jpg"
+    },
+    {
+      "id": "shape_star",
+      "label": "星星",
+      "category": "顏色／形狀",
+      "img": "images/shape_star.jpg"
+    },
+    {
+      "id": "color_brown",
+      "label": "棕色",
+      "category": "顏色／形狀",
+      "img": "images/color_brown.jpg"
+    },
+    {
+      "id": "color_orange",
+      "label": "橙色",
+      "category": "顏色／形狀",
+      "img": "images/color_orange.jpg"
+    },
+    {
+      "id": "color_white",
+      "label": "白色",
+      "category": "顏色／形狀",
+      "img": "images/color_white.jpg"
+    },
+    {
+      "id": "color_pink",
+      "label": "粉色",
+      "category": "顏色／形狀",
+      "img": "images/color_pink.jpg"
+    },
+    {
+      "id": "color_red",
+      "label": "紅色",
+      "category": "顏色／形狀",
+      "img": "images/color_red.jpg"
+    },
+    {
+      "id": "color_purple",
+      "label": "紫色",
+      "category": "顏色／形狀",
+      "img": "images/color_purple.jpg"
+    },
+    {
+      "id": "color_green",
+      "label": "綠色",
+      "category": "顏色／形狀",
+      "img": "images/color_green.jpg"
+    },
+    {
+      "id": "color_blue",
+      "label": "藍色",
+      "category": "顏色／形狀",
+      "img": "images/color_blue.jpg"
+    },
+    {
+      "id": "color_yellow",
+      "label": "黃色",
+      "category": "顏色／形狀",
+      "img": "images/color_yellow.jpg"
+    },
+    {
+      "id": "color_black",
+      "label": "黑色",
+      "category": "顏色／形狀",
+      "img": "images/color_black.jpg"
+    },
+    {
+      "id": "weather_rain",
+      "label": "下雨",
+      "category": "天氣",
+      "img": "images/weather_rain.jpg"
+    },
+    {
+      "id": "weather_snow",
+      "label": "下雪",
+      "category": "天氣",
+      "img": "images/weather_snow.jpg"
+    },
+    {
+      "id": "weather_sun",
+      "label": "太陽",
+      "category": "天氣",
+      "img": "images/weather_sun.jpg"
+    },
+    {
+      "id": "weather_rainbow",
+      "label": "彩虹",
+      "category": "天氣",
+      "img": "images/weather_rainbow.jpg"
+    },
+    {
+      "id": "weather_cold",
+      "label": "很冷",
+      "category": "天氣",
+      "img": "images/weather_cold.jpg"
+    },
+    {
+      "id": "weather_hot",
+      "label": "很熱",
+      "category": "天氣",
+      "img": "images/weather_hot.jpg"
+    },
+    {
+      "id": "weather_thunder",
+      "label": "打雷",
+      "category": "天氣",
+      "img": "images/weather_thunder.jpg"
+    },
+    {
+      "id": "weather_fog",
+      "label": "起霧",
+      "category": "天氣",
+      "img": "images/weather_fog.jpg"
+    },
+    {
+      "id": "weather_cloud",
+      "label": "雲",
+      "category": "天氣",
+      "img": "images/weather_cloud.jpg"
+    },
+    {
+      "id": "weather_wind",
+      "label": "風",
+      "category": "天氣",
+      "img": "images/weather_wind.jpg"
+    }
+  ]
+};
+const CAT_COLORS = {"需求": "#42a5f5", "心情": "#ab47bc", "回應": "#66bb6a", "食物": "#ff7043", "水果": "#ec407a", "蔬菜": "#66bb6a", "點心": "#ffa726", "飲料": "#29b6f6", "動物": "#8d6e63", "交通工具": "#5c6bc0", "衣服": "#26a69a", "玩具": "#ef5350", "日用品": "#78909c", "家具": "#a1887f", "學校用品": "#42a5f5", "電器": "#7e57c2", "地點": "#26c6da", "活動": "#ffca28", "人物": "#f06292", "身體": "#ff8a65", "顏色／形狀": "#7e57c2", "天氣": "#4fc3f7"};
+
+const DB_NAME="card-talk-zh", DB_STORE="customCards", SETTINGS_KEY="cardTalkSettings";
+let customCards=[], sentence=[], activeCat=BUILTIN.categories[0];
+let editId=null, photoDataUrl=null, audioDataUrl=null, mediaRecorder=null, recChunks=[];
+let preferredVoice=null, settings={cardSize:124, rate:0.95};
+
+function toast(msg){const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2200)}
+function openModal(id){document.getElementById(id).classList.add("show")}
+function closeModal(id){document.getElementById(id).classList.remove("show")}
+function setCatColor(cat){document.documentElement.style.setProperty("--cat-color", CAT_COLORS[cat]||"#29b6f6")}
+
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1); req.onupgradeneeded=()=>{const db=req.result; if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE,{keyPath:"id"})}; req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error)})}
+async function loadCustom(){try{const db=await openDB(); customCards=await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readonly"); const req=tx.objectStore(DB_STORE).getAll(); req.onsuccess=()=>resolve(req.result||[]); req.onerror=()=>reject(req.error)})}catch(e){try{customCards=JSON.parse(localStorage.getItem("cardTalkCustom")||"[]")}catch(_){customCards=[]}}}
+async function saveCustomCard(card){try{const db=await openDB(); await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readwrite"); tx.objectStore(DB_STORE).put(card); tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error)})}catch(e){const all=customCards.filter(c=>c.id!==card.id).concat([card]); localStorage.setItem("cardTalkCustom",JSON.stringify(all))}}
+async function deleteCustomCard(id){customCards=customCards.filter(c=>c.id!==id); try{const db=await openDB(); await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readwrite"); tx.objectStore(DB_STORE).delete(id); tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error)})}catch(e){localStorage.setItem("cardTalkCustom",JSON.stringify(customCards))}}
+
+function pickVoice(){const voices=speechSynthesis.getVoices()||[]; preferredVoice=voices.find(v=>/zh(-|_)?tw/i.test(v.lang)||/taiwan/i.test(v.name))||voices.find(v=>/zh(-|_)?hk/i.test(v.lang))||voices.find(v=>/^zh/i.test(v.lang)||/chinese|中文|國語|普通话/i.test(v.name))||null; const info=document.getElementById("voiceInfo"); if(info) info.textContent=preferredVoice?`語音：${preferredVoice.name}（${preferredVoice.lang}）`:"語音：尚未找到中文語音（系統會用預設；iOS 請安裝繁中語音）"}
+speechSynthesis.onvoiceschanged=pickVoice;
+function speakText(text){return new Promise(resolve=>{try{speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang="zh-TW"; if(preferredVoice) u.voice=preferredVoice; u.rate=settings.rate; u.onend=()=>resolve(); u.onerror=()=>resolve(); speechSynthesis.speak(u)}catch(e){resolve()}})}
+function playAudioDataUrl(dataUrl){return new Promise(resolve=>{const a=new Audio(dataUrl); a.onended=()=>resolve(); a.onerror=()=>resolve(); a.play().catch(()=>resolve())})}
+async function speakCard(card){if(card.audioDataUrl) await playAudioDataUrl(card.audioDataUrl); else await speakText(card.label)}
+
+function renderCats(){const el=document.getElementById("cats"); const cats=BUILTIN.categories.slice(); if(customCards.length) cats.push("自訂"); el.innerHTML=""; cats.forEach(cat=>{const b=document.createElement("button"); b.type="button"; b.className="cat-btn"+(cat===activeCat?" active":""); b.textContent=cat; if(CAT_COLORS[cat]) b.style.borderColor=CAT_COLORS[cat]; b.onclick=()=>{activeCat=cat; setCatColor(cat); renderCats(); renderGrid()}; el.appendChild(b)}); if(!cats.includes(activeCat)) activeCat=cats[0]; setCatColor(activeCat)}
+function allVisibleCards(){if(activeCat==="自訂") return customCards.map(c=>({...c,isCustom:true})); return BUILTIN.cards.filter(c=>c.category===activeCat)}
+function renderGrid(){const grid=document.getElementById("grid"); grid.innerHTML=""; allVisibleCards().forEach(card=>{const div=document.createElement("button"); div.type="button"; div.className="card"+(card.isCustom?" custom-badge":""); div.setAttribute("role","listitem"); div.innerHTML=`<div class="photo"><img src="${card.img}" alt="${card.label}" loading="lazy" /></div><div class="label">${card.label}</div>`; div.addEventListener("click",()=>onCardTap(card,div)); grid.appendChild(div)})}
+function renderStrip(){const strip=document.getElementById("strip"); strip.innerHTML=""; sentence.forEach(card=>{const d=document.createElement("div"); d.className="strip-card"; d.innerHTML=`<img src="${card.img}" alt="" /><span>${card.label}</span>`; strip.appendChild(d)}); strip.scrollLeft=strip.scrollWidth}
+async function onCardTap(card,el){sentence.push({id:card.id,label:card.label,img:card.img,audioDataUrl:card.audioDataUrl||null,isCustom:!!card.isCustom}); renderStrip(); if(el){el.classList.add("speaking"); setTimeout(()=>el.classList.remove("speaking"),420)} await speakCard(card)}
+
+function resizeImageFile(file,maxSide=400,quality=.84){return new Promise((resolve,reject)=>{const reader=new FileReader(); reader.onerror=reject; reader.onload=()=>{const img=new Image(); img.onload=()=>{let w=img.width,h=img.height; const scale=maxSide/Math.max(w,h); if(scale<1){w=Math.round(w*scale); h=Math.round(h*scale)} const canvas=document.createElement("canvas"); canvas.width=w; canvas.height=h; const ctx=canvas.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h); resolve(canvas.toDataURL("image/jpeg",quality))}; img.onerror=reject; img.src=reader.result}; reader.readAsDataURL(file)})}
+
+async function toggleRecord(){const btn=document.getElementById("btnRec"); const status=document.getElementById("recStatus"); if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop(); return} if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast("此裝置不支援錄音，將使用語音朗讀"); return} try{const stream=await navigator.mediaDevices.getUserMedia({audio:true}); recChunks=[]; const mime=MediaRecorder.isTypeSupported("audio/webm")?"audio/webm":(MediaRecorder.isTypeSupported("audio/mp4")?"audio/mp4":""); mediaRecorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream); mediaRecorder.ondataavailable=e=>{if(e.data.size) recChunks.push(e.data)}; mediaRecorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop()); const blob=new Blob(recChunks,{type:mediaRecorder.mimeType||"audio/webm"}); audioDataUrl=await blobToDataURL(blob); status.innerHTML="已錄音 ✓"; document.getElementById("btnPlayRec").disabled=false; btn.textContent="● 開始錄音"}; mediaRecorder.start(); status.innerHTML='<span class="rec-dot"></span>錄音中…再按一次結束'; btn.textContent="■ 停止"}catch(e){toast("無法使用麥克風（需要 HTTPS 或本機權限）")}}
+function blobToDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(blob)})}
+
+function applySettings(){document.documentElement.style.setProperty("--card-size",settings.cardSize+"px"); document.getElementById("sizeRange").value=settings.cardSize; document.getElementById("rateRange").value=settings.rate; localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings))}
+function loadSettings(){try{settings=Object.assign(settings,JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}"))}catch(_){} applySettings()}
+
+function resetCustomForm(){editId=null; photoDataUrl=null; audioDataUrl=null; document.getElementById("customTitle").textContent="新增自訂圖卡"; document.getElementById("customLabel").value=""; document.getElementById("customPhoto").value=""; document.getElementById("photoPreview").innerHTML='<span style="color:#90a4ae;font-size:13px">預覽</span>'; document.getElementById("recStatus").textContent="尚未錄音"; document.getElementById("btnPlayRec").disabled=true}
+async function saveCustom(){const label=document.getElementById("customLabel").value.trim(); if(!label){toast("請輸入文字"); return} if(!photoDataUrl){toast("請選擇照片"); return} const card={id:editId||("c_"+Date.now()), label, category:"自訂", img:photoDataUrl, audioDataUrl:audioDataUrl||null, isCustom:true, updatedAt:Date.now()}; if(editId) customCards=customCards.filter(c=>c.id!==editId); customCards.push(card); await saveCustomCard(card); closeModal("modalCustom"); activeCat="自訂"; renderCats(); renderGrid(); toast("已儲存")}
+function renderManage(){const list=document.getElementById("manageList"); const empty=document.getElementById("manageEmpty"); list.innerHTML=""; empty.style.display=customCards.length?"none":"block"; customCards.forEach(card=>{const row=document.createElement("div"); row.className="manage-item"; row.innerHTML=`<img src="${card.img}" alt="" /><div class="meta">${card.label}</div>`; const edit=document.createElement("button"); edit.textContent="編輯"; edit.style.background="#42a5f5"; edit.onclick=()=>{editId=card.id; photoDataUrl=card.img; audioDataUrl=card.audioDataUrl||null; document.getElementById("customTitle").textContent="編輯自訂圖卡"; document.getElementById("customLabel").value=card.label; document.getElementById("photoPreview").innerHTML=`<img src="${card.img}" alt="" />`; document.getElementById("recStatus").textContent=audioDataUrl?"已有錄音":"尚未錄音"; document.getElementById("btnPlayRec").disabled=!audioDataUrl; closeModal("modalManage"); openModal("modalCustom")}; const del=document.createElement("button"); del.textContent="刪除"; del.style.background="#ef5350"; del.onclick=async()=>{if(!confirm("確定刪除「"+card.label+"」？")) return; await deleteCustomCard(card.id); renderManage(); renderCats(); renderGrid()}; row.appendChild(edit); row.appendChild(del); list.appendChild(row)})}
+function exportCustom(){const payload={app:"圖卡說話",version:1,exportedAt:new Date().toISOString(),cards:customCards}; const blob=new Blob([JSON.stringify(payload)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="card-talk-custom-"+new Date().toISOString().slice(0,10)+".json"; a.click(); URL.revokeObjectURL(a.href); toast("已匯出")}
+async function importCustom(file){const text=await file.text(); let data; try{data=JSON.parse(text)}catch(_){toast("JSON 格式錯誤"); return} const cards=Array.isArray(data)?data:(data.cards||[]); if(!cards.length){toast("檔案裡沒有圖卡"); return} let n=0; for(const c of cards){if(!c||!c.label||!c.img) continue; const card={id:c.id||("c_imp_"+Date.now()+"_"+n), label:String(c.label).slice(0,20), category:"自訂", img:c.img, audioDataUrl:c.audioDataUrl||null, isCustom:true, updatedAt:Date.now()}; customCards=customCards.filter(x=>x.id!==card.id); customCards.push(card); await saveCustomCard(card); n++} activeCat="自訂"; renderCats(); renderGrid(); toast("已匯入 "+n+" 張")}
+
+document.getElementById("btnPlayAll").onclick=async()=>{if(!sentence.length){toast("句子是空的"); return} for(const card of sentence) await speakCard(card)};
+document.getElementById("btnUndo").onclick=()=>{sentence.pop(); renderStrip()};
+document.getElementById("btnClear").onclick=()=>{sentence=[]; speechSynthesis.cancel(); renderStrip()};
+document.getElementById("btnSettings").onclick=()=>{pickVoice(); openModal("modalSettings")};
+document.getElementById("closeSettings").onclick=()=>closeModal("modalSettings");
+document.getElementById("sizeRange").oninput=e=>{settings.cardSize=+e.target.value; applySettings()};
+document.getElementById("rateRange").oninput=e=>{settings.rate=+e.target.value; applySettings()};
+document.getElementById("btnAdd").onclick=()=>{resetCustomForm(); openModal("modalCustom")};
+document.getElementById("btnCancelCustom").onclick=()=>closeModal("modalCustom");
+document.getElementById("btnSaveCustom").onclick=saveCustom;
+document.getElementById("customPhoto").onchange=async e=>{const f=e.target.files&&e.target.files[0]; if(!f) return; try{photoDataUrl=await resizeImageFile(f); document.getElementById("photoPreview").innerHTML=`<img src="${photoDataUrl}" alt="" />`}catch(err){toast("無法讀取照片")}};
+document.getElementById("btnRec").onclick=toggleRecord;
+document.getElementById("btnPlayRec").onclick=()=>{if(audioDataUrl) playAudioDataUrl(audioDataUrl)};
+document.getElementById("btnClearRec").onclick=()=>{audioDataUrl=null; document.getElementById("recStatus").textContent="尚未錄音"; document.getElementById("btnPlayRec").disabled=true};
+document.getElementById("btnManage").onclick=()=>{renderManage(); openModal("modalManage")};
+document.getElementById("closeManage").onclick=()=>closeModal("modalManage");
+document.getElementById("btnIO").onclick=()=>openModal("modalIO");
+document.getElementById("closeIO").onclick=()=>closeModal("modalIO");
+document.getElementById("btnDoExport").onclick=exportCustom;
+document.getElementById("importFile").onchange=async e=>{const f=e.target.files&&e.target.files[0]; if(f) await importCustom(f); e.target.value=""};
+document.querySelectorAll(".modal-backdrop").forEach(bd=>bd.addEventListener("click",e=>{if(e.target===bd) bd.classList.remove("show")}));
+
+(async function init(){loadSettings(); await loadCustom(); pickVoice(); setTimeout(pickVoice,500); renderCats(); renderGrid(); renderStrip(); if("serviceWorker" in navigator){try{await navigator.serviceWorker.register("./sw.js")}catch(_){}} })();
+</script>
+</body>
+</html>
