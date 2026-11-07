@@ -1,12 +1,13 @@
 // v5: 網路優先載入頁面與程式（離線時用快取），圖片快取優先。
 // 之後版本不自動跳過等待：頁面顯示「有新版本」，使用者按下才更新，避免中斷錄音或表單。
 // 只刪除舊的 card-talk-* 快取；不碰 IndexedDB / localStorage（自訂圖卡、錄音、設定）。
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'card-talk-' + VERSION;
 const ASSETS = [
   './',
   './index.html',
   './compose.js',
+  './story.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -252,7 +253,7 @@ const ASSETS = [
   './images/weather_wind.jpg',
   './images/yes.jpg'
 ];
-const FRESH = /\/(index\.html|compose\.js|manifest\.webmanifest)?$/;
+const FRESH = /\/(index\.html|compose\.js|story\.js|manifest\.webmanifest)?$/;
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) =>

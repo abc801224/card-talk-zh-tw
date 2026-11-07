@@ -146,10 +146,13 @@
     }
     groups.forEach(function (g) {
       var O = joinAnd(g.os), V = g.v, VO = (V === "要" ? "" : V) + O, opts;
-      if (neg) opts = V === "要" ? ["我不要" + O, "我不想要" + O] : ["我不想" + V + O, "我不要" + V + O];
-      else if (more) opts = V === "要" ? ["我還要" + O, "我還想要" + O] : ["我還想" + V + O, "我還要" + V + O];
+      if (neg) { opts = V === "要" ? ["我不要" + O, "我不想要" + O] : ["我不想" + V + O, "我不要" + V + O]; if (O) opts.push(O + "，我不要" + (V === "要" ? "" : V)); }
+      else if (more) { opts = V === "要" ? ["我還要" + O, "我還想要" + O] : ["我還想" + V + O, "我還要" + V + O, "我還想再" + V + O]; if (O && GIVEABLE[V]) opts.push("可以再給我" + O + "嗎？"); }
       else {
-        opts = V === "要" ? ["我想要" + O, "我要" + O, "可以給我" + O + "嗎？"] : ["我想" + V + O, "我想要" + V + O, "我可以" + V + O + "嗎？"];
+        opts = V === "要" ? ["我想要" + O, "我要" + O, "可以給我" + O + "嗎？", O + "，我想要", "請問可以給我" + O + "嗎？"]
+          : ["我想" + V + O, "我想要" + V + O, "我可以" + V + O + "嗎？", "能不能讓我" + V + O + "？", "我好想" + V + O + "喔！", "請問我可以" + V + O + "嗎？"];
+        if (O && V !== "要") opts.push(O + "，我想" + V);
+        if (O && GIVEABLE[V] && V !== "要" && g.cats && Object.keys(g.cats).length) opts.push("可以給我" + O + "嗎？", "可以幫我拿" + O + "嗎？");
         if (please) {
           opts = (GIVEABLE[V] && O) ? ["請給我" + O, "請讓我" + VO] : ["請讓我" + VO, "可以請你讓我" + VO + "嗎？"];
         }
@@ -175,7 +178,7 @@
     var pre2 = interj.filter(function (t) { return !firstContent || t.idx < firstContent.idx; }).map(function (t) { return t.t; });
     var post = interj.filter(function (t) { return firstContent && t.idx > firstContent.idx; }).map(function (t) { return t.t; });
     var voc = (persons.length && !onlyPersons) ? joinAnd(persons) + "，" : "";
-    if (clauses.length > 1 || post.length) clauses = clauses.map(function (c) { var f = c.filter(function (x) { return !/？$/.test(x); }); return f.length ? f : c; });
+    if (clauses.length > 1 || post.length) clauses = clauses.map(function (c) { var f = c.filter(function (x) { return !/？$/.test(x) && !/好想|^能不能|^可以|^請問|^[^我]+，我/.test(x); }); return f.length ? f : c; });
     var n = Math.max.apply(null, clauses.map(function (c) { return c.length; }));
     var out = [];
     for (var a = 0; a < n; a++) {
@@ -185,10 +188,11 @@
         return p.replace(/^我想/, "也想").replace(/^我不想/, "也不想").replace(/^我還想/, "也還想").replace(/[。？！]$/, "");
       });
       var q = /？$/.test(parts[parts.length - 1]) && parts.length === 1;
+      var ex = /！$/.test(parts[parts.length - 1]) && parts.length === 1 && !post.length;
       var body = s.join("，");
       var usesTogether = /一起/.test(body);
       var sentence = (pre2.length ? pre2.join("，") + "，" : "") + (usesTogether ? "" : voc) + body + (post.length ? "，" + post.join("，") : "");
-      out.push(q ? sentence.replace(/？?$/, "？") : end(sentence));
+      out.push(q ? sentence.replace(/？?$/, "？") : ex ? sentence + "！" : end(sentence));
     }
     return { ok: true, alternatives: uniq(out) };
   }
