@@ -1,4 +1,8 @@
-const CACHE = 'card-talk-v4';
+// v5: 網路優先載入頁面與程式（離線時用快取），圖片快取優先。
+// 之後版本不自動跳過等待：頁面顯示「有新版本」，使用者按下才更新，避免中斷錄音或表單。
+// 只刪除舊的 card-talk-* 快取；不碰 IndexedDB / localStorage（自訂圖卡、錄音、設定）。
+const VERSION = 'v5';
+const CACHE = 'card-talk-' + VERSION;
 const ASSETS = [
   './',
   './index.html',
@@ -248,21 +252,33 @@ const ASSETS = [
   './images/weather_wind.jpg',
   './images/yes.jpg'
 ];
+const FRESH = /\/(index\.html|compose\.js|manifest\.webmanifest)?$/;
 
-self.addEventListener('install', (e) => {{
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
-}});
-self.addEventListener('activate', (e) => {{
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
-}});
-self.addEventListener('fetch', (e) => {{
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) =>
+    Promise.all(ASSETS.map((u) => fetch(new Request(u, { cache: 'reload' })).then((r) => { if (r.ok) return c.put(u, r); })))
+  // 一次性遷移：v3/v4 頁面沒有「更新」按鈕，所以 v5 安裝後直接接手（不會強制重新整理頁面）。之後版本改由使用者按「更新」。
+  ).then(() => self.skipWaiting()));
+});
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('card-talk-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET') return;
-  e.respondWith(
-    caches.match(req).then(cached => cached || fetch(req).then(res => {{
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(req, copy));
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  if (req.mode === 'navigate' || FRESH.test(url.pathname)) {
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then((res) => {
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req.mode === 'navigate' ? './index.html' : req, copy)); }
       return res;
-    }}).catch(() => cached))
-  );
-}});
+    }).catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match('./index.html'))));
+    return;
+  }
+  e.respondWith(caches.match(req, { ignoreSearch: true }).then((cached) => cached || fetch(req).then((res) => {
+    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
+    return res;
+  })));
+});
